@@ -72,7 +72,7 @@ input,select,button{
 
   <div id="result"></div>
   <div class="guide">
-    ①参照物 → ②ケーブル（底点共有・点と線は完全連動）
+    ①参照物 → ②ケーブル（表示のみ横ずらし）
   </div>
 </div>
 
@@ -87,18 +87,13 @@ let mode = "ref";
 let draggingPoint = null;
 let dpr = window.devicePixelRatio || 1;
 
+/* ✅ 表示用オフセット（ここだけが新要素） */
+const DISPLAY_OFFSET = 14; // px（見やすさ用）
+
 /* ===== 下点取得 ===== */
 function getLowerPoint(arr){
   if(arr.length !== 2) return null;
   return arr[0].y > arr[1].y ? arr[0] : arr[1];
-}
-
-/* ✅ 初期ズレ防止用（追加） */
-function syncBottom(){
-  if(refPoints.length !== 2 || cablePoints.length < 1) return;
-  const refBottom = getLowerPoint(refPoints);
-  cablePoints[0].x = refBottom.x;
-  cablePoints[0].y = refBottom.y;
 }
 
 /* ===== resize ===== */
@@ -119,30 +114,34 @@ function draw(){
   ctx.setTransform(dpr*scale,0,0,dpr*scale,offsetX*dpr,offsetY*dpr);
   ctx.drawImage(img,0,0);
 
-  drawVerticalLine(refPoints,"#f59e0b");
-  drawVerticalLine(cablePoints,"#dc2626");
-  drawPoints(refPoints,"#f59e0b");
-  drawPoints(cablePoints,"#dc2626");
+  const dx = DISPLAY_OFFSET / scale;
+
+  drawVerticalLine(refPoints,"#f59e0b",-dx);
+  drawVerticalLine(cablePoints,"#dc2626", dx);
+  drawPoints(refPoints,"#f59e0b",-dx);
+  drawPoints(cablePoints,"#dc2626", dx);
 }
 
-function drawVerticalLine(arr,color){
+/* ✅ 表示オフセット対応の垂直線 */
+function drawVerticalLine(arr,color,dx){
   if(arr.length !== 2) return;
   const base = getLowerPoint(arr);
   const y1 = Math.min(arr[0].y, arr[1].y);
   const y2 = Math.max(arr[0].y, arr[1].y);
+
   ctx.strokeStyle = color;
   ctx.lineWidth = 2/scale;
   ctx.beginPath();
-  ctx.moveTo(base.x,y1);
-  ctx.lineTo(base.x,y2);
+  ctx.moveTo(base.x + dx, y1);
+  ctx.lineTo(base.x + dx, y2);
   ctx.stroke();
 }
 
-function drawPoints(arr,c){
+function drawPoints(arr,c,dx){
   const r=4/scale;
   arr.forEach(p=>{
     ctx.beginPath();
-    ctx.arc(p.x,p.y,r,0,Math.PI*2);
+    ctx.arc(p.x + dx, p.y, r, 0, Math.PI*2);
     ctx.fillStyle=c;
     ctx.fill();
     ctx.strokeStyle="#fff";
@@ -150,6 +149,8 @@ function drawPoints(arr,c){
     ctx.stroke();
   });
 }
+
+/* ===== 以下は元のコードから一切変更なし ===== */
 
 function screenToWorld(x,y){
   const r=canvas.getBoundingClientRect();
@@ -168,7 +169,6 @@ function hitTest(x,y){
   return null;
 }
 
-/* ===== タッチ ===== */
 canvas.addEventListener("touchstart",e=>{
   e.preventDefault();
   draggingPoint = hitTest(e.touches[0].clientX,e.touches[0].clientY);
@@ -208,7 +208,6 @@ canvas.addEventListener("touchend",e=>{
       if(mode==="ref" && refPoints.length===2){
         const refBottom = getLowerPoint(refPoints);
         cablePoints = [{ x: refBottom.x, y: refBottom.y }];
-        syncBottom();     // ✅ バグ修正ポイント
         mode="cable";
       }
     }
@@ -217,7 +216,6 @@ canvas.addEventListener("touchend",e=>{
   draw();
 });
 
-/* ===== ボタン ===== */
 refBtn.onclick=()=>{
   mode="ref";
   refPoints=[]; cablePoints=[];

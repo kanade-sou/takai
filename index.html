@@ -43,37 +43,14 @@ input,select,button{
 
 <div class="panel">
   <input type="file" id="fileInput" accept="image/*">
-
-  <select id="device">
-    <option value="">📱 iPhone機種を選択</option>
-    <option value="ip17_pro">iPhone 17 Pro</option>
-    <option value="ip17_max">iPhone 17 Pro Max</option>
-    <option value="ip17">iPhone 17</option>
-    <option value="ip16_pro">iPhone 16 Pro</option>
-    <option value="ip16_max">iPhone 16 Pro Max</option>
-    <option value="ip16">iPhone 16</option>
-    <option value="ip15_pro">iPhone 15 Pro</option>
-    <option value="ip15_max">iPhone 15 Pro Max</option>
-    <option value="ip15">iPhone 15</option>
-    <option value="ip14_pro">iPhone 14 Pro</option>
-    <option value="ip14">iPhone 14</option>
-    <option value="ip13_pro">iPhone 13 Pro</option>
-    <option value="ip13">iPhone 13</option>
-    <option value="ip12">iPhone 12</option>
-    <option value="ipse">iPhone SE (第2・3世代)</option>
-  </select>
-
+  <select id="device"></select>
   <input type="number" id="shootDist" placeholder="📏 撮影距離（m）">
   <input type="number" id="refHeight" placeholder="📐 参照物の高さ（m）">
-
   <button id="refBtn" class="ref">🟠 参照物を指定</button>
   <button id="calcBtn" class="calc">🔴 高さを計算</button>
   <button id="resetBtn" class="reset">↺ リセット</button>
-
   <div id="result"></div>
-  <div class="guide">
-    底点1オブジェクト・完全垂直固定
-  </div>
+  <div class="guide">縦の長さは自由・垂直固定</div>
 </div>
 
 <script>
@@ -167,12 +144,19 @@ canvas.addEventListener("touchstart",e=>{
 canvas.addEventListener("touchmove",e=>{
   e.preventDefault();
   if(!draggingPoint) return;
+
   const p=screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
 
-  draggingPoint.y = p.y;
-  if(bottomPoint){
-    draggingPoint.x = bottomPoint.x; // ✅ 垂直完全固定
+  if(draggingPoint === bottomPoint){
+    const dy = p.y - bottomPoint.y;
+    bottomPoint.y += dy;
+    if(refTop) refTop.y += dy;
+    if(cableTop) cableTop.y += dy;
+  }else{
+    draggingPoint.y = p.y;
   }
+
+  draggingPoint.x = bottomPoint.x; // ✅ 常に垂直固定
   draw();
 },{passive:false});
 
@@ -195,41 +179,8 @@ canvas.addEventListener("touchend",e=>{
   draggingPoint=null;
   draw();
 });
-
-/* ボタン */
-refBtn.onclick=()=>{
-  mode="ref";
-  bottomPoint=null;
-  refTop=null;
-  cableTop=null;
-  result.textContent="";
-};
-
-resetBtn.onclick=()=>{
-  img.src="";
-  bottomPoint=null;
-  refTop=null;
-  cableTop=null;
-  mode="ref";
-  scale=1; offsetX=0; offsetY=0;
-  result.textContent="";
-  draw();
-};
-
-fileInput.onchange=e=>{
-  const r=new FileReader();
-  r.onload=()=>{
-    img.onload=()=>{
-      scale=canvas.clientWidth/img.width;
-      offsetX=0;
-      offsetY=(canvas.clientHeight-img.height*scale)/2;
-      draw();
-    };
-    img.src=r.result;
-  };
-  r.readAsDataURL(e.target.files[0]);
-};
 </script>
 
 </body>
 </html>
+``

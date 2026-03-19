@@ -72,7 +72,7 @@ input,select,button{
 
   <div id="result"></div>
   <div class="guide">
-    底点は1つだけ共有（ズレ完全ゼロ）
+    底点1オブジェクト・完全垂直固定
   </div>
 </div>
 
@@ -84,11 +84,10 @@ let img=new Image();
 let scale=1, offsetX=0, offsetY=0;
 let dpr=window.devicePixelRatio||1;
 
-let bottomPoint = null;
-let refTop = null;
-let cableTop = null;
-
-let mode="ref"; // ref -> cable
+let bottomPoint=null;
+let refTop=null;
+let cableTop=null;
+let mode="ref";
 let draggingPoint=null;
 
 const DISPLAY_OFFSET = 14;
@@ -127,7 +126,7 @@ function drawLine(top,bottom,color,dx){
   ctx.lineWidth=2/scale;
   ctx.beginPath();
   ctx.moveTo(bottom.x+dx,bottom.y);
-  ctx.lineTo(top.x+dx,top.y);
+  ctx.lineTo(bottom.x+dx,top.y);
   ctx.stroke();
 }
 
@@ -169,8 +168,11 @@ canvas.addEventListener("touchmove",e=>{
   e.preventDefault();
   if(!draggingPoint) return;
   const p=screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
-  draggingPoint.x=p.x;
-  draggingPoint.y=p.y;
+
+  draggingPoint.y = p.y;
+  if(bottomPoint){
+    draggingPoint.x = bottomPoint.x; // ✅ 垂直完全固定
+  }
   draw();
 },{passive:false});
 
@@ -178,13 +180,16 @@ canvas.addEventListener("touchend",e=>{
   if(!draggingPoint){
     const p=screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
     if(mode==="ref"){
-      if(!refTop) refTop=p;
+      if(!refTop) refTop={x:p.x,y:p.y};
       else{
-        bottomPoint=p;
+        bottomPoint={x:p.x,y:p.y};
+        refTop.x=bottomPoint.x;
         mode="cable";
       }
     }else{
-      if(!cableTop) cableTop=p;
+      if(!cableTop){
+        cableTop={x:bottomPoint.x,y:p.y};
+      }
     }
   }
   draggingPoint=null;

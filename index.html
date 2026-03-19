@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -72,7 +73,7 @@ input,select,button{
 
   <div id="result"></div>
   <div class="guide">
-    ①参照物 → ②ケーブル（垂直・点と線は完全連動）
+    ①参照物 → ②ケーブル（下点はX軸自動一致）
   </div>
 </div>
 
@@ -87,6 +88,12 @@ let mode = "ref";
 let draggingPoint = null;
 let spiral = null;
 let dpr = window.devicePixelRatio || 1;
+
+/* ===== 下点判定（追加） ===== */
+function getLowerPoint(arr){
+  if(arr.length !== 2) return null;
+  return arr[0].y > arr[1].y ? arr[0] : arr[1];
+}
 
 /* ===== resize ===== */
 function resize(){
@@ -113,7 +120,6 @@ function draw(){
   drawSpiral();
 }
 
-/* 垂直線（点と完全連動） */
 function drawVerticalLine(arr,color){
   if(arr.length!==2) return;
   const x = arr[0].x;
@@ -140,7 +146,6 @@ function drawPoints(arr,c){
   });
 }
 
-/* スパイラル */
 function drawSpiral(){
   if(!spiral) return;
   const {x,y,t,c}=spiral;
@@ -157,7 +162,6 @@ function drawSpiral(){
   else spiral=null;
 }
 
-/* 座標変換 */
 function screenToWorld(x,y){
   const r=canvas.getBoundingClientRect();
   return {
@@ -184,23 +188,42 @@ canvas.addEventListener("touchstart",e=>{
 canvas.addEventListener("touchmove",e=>{
   e.preventDefault();
   if(!draggingPoint) return;
-  const p=screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
+
+  const p = screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
   const arr = refPoints.includes(draggingPoint) ? refPoints : cablePoints;
+
+  // 垂直連動（既存）
   arr.forEach(pt => pt.x = p.x);
+
+  // ✅ ケーブル下点は参照物下点のXに固定
+  if(arr === cablePoints && refPoints.length === 2){
+    const refBottom = getLowerPoint(refPoints);
+    const cableBottom = getLowerPoint(cablePoints);
+    if(draggingPoint === cableBottom){
+      draggingPoint.x = refBottom.x;
+    }
+  }
+
   draggingPoint.y = p.y;
   draw();
 },{passive:false});
 
 canvas.addEventListener("touchend",e=>{
   if(!draggingPoint){
-    const p=screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+    const p = screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
     const arr = (mode==="ref") ? refPoints : cablePoints;
+
     if(arr.length<2){
       arr.push(p);
-      if(arr.length===2){
-        arr[1].x = arr[0].x;
-        if(mode==="ref") mode="cable";
+
+      // ✅ ケーブル下点はXを自動一致
+      if(mode==="cable" && arr.length===2 && refPoints.length===2){
+        const refBottom = getLowerPoint(refPoints);
+        const cableBottom = getLowerPoint(cablePoints);
+        cableBottom.x = refBottom.x;
       }
+
+      if(arr.length===2 && mode==="ref") mode="cable";
       spiral={x:p.x,y:p.y,t:0,c:(mode==="ref")?"#f59e0b":"#dc2626"};
     }
   }
@@ -237,7 +260,6 @@ resetBtn.onclick=()=>{
   draw();
 };
 
-/* 画像読み込み */
 fileInput.onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{

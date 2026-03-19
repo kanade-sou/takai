@@ -38,10 +38,7 @@ input,select,button{
 
 <body>
 
-<header>
-📱 スマホ完結｜ケーブル地上高測定ツール
-</header>
-
+<header>📱 スマホ完結｜ケーブル地上高測定ツール</header>
 <canvas id="canvas"></canvas>
 
 <div class="panel">
@@ -75,7 +72,7 @@ input,select,button{
 
   <div id="result"></div>
   <div class="guide">
-    ①参照物 → ②ケーブルを上下2点（縦線で自動整列）
+    ①参照物 → ②ケーブル（垂直・点と線は完全連動）
   </div>
 </div>
 
@@ -89,18 +86,16 @@ let refPoints = [], cablePoints = [];
 let mode = "ref";
 let draggingPoint = null;
 let spiral = null;
-
 let dpr = window.devicePixelRatio || 1;
 
 /* ===== resize ===== */
 function resize(){
   const r = canvas.getBoundingClientRect();
-  dpr = window.devicePixelRatio || 1;
   canvas.width  = r.width  * dpr;
   canvas.height = r.height * dpr;
   draw();
 }
-window.addEventListener("resize",resize);
+window.addEventListener("resize", resize);
 resize();
 
 /* ===== 描画 ===== */
@@ -118,19 +113,17 @@ function draw(){
   drawSpiral();
 }
 
-/* ✅ 垂直線描画 */
+/* ✅ 垂直線（点と完全連動） */
 function drawVerticalLine(arr,color){
   if(arr.length!==2) return;
-
-  const x = (arr[0].x + arr[1].x) / 2;
+  const x = arr[0].x;
   const y1 = Math.min(arr[0].y, arr[1].y);
   const y2 = Math.max(arr[0].y, arr[1].y);
-
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2 / scale;
+  ctx.lineWidth = 2/scale;
   ctx.beginPath();
-  ctx.moveTo(x, y1);
-  ctx.lineTo(x, y2);
+  ctx.moveTo(x,y1);
+  ctx.lineTo(x,y2);
   ctx.stroke();
 }
 
@@ -141,13 +134,13 @@ function drawPoints(arr,c){
     ctx.arc(p.x,p.y,r,0,Math.PI*2);
     ctx.fillStyle=c;
     ctx.fill();
-    ctx.lineWidth=1/scale;
     ctx.strokeStyle="#fff";
+    ctx.lineWidth=1/scale;
     ctx.stroke();
   });
 }
 
-/* ===== らせん ===== */
+/* ===== スパイラル（変更なし） ===== */
 function drawSpiral(){
   if(!spiral) return;
   const {x,y,t,c}=spiral;
@@ -177,9 +170,7 @@ function hitTest(x,y){
   const r=canvas.getBoundingClientRect();
   const sx=x-r.left, sy=y-r.top;
   for(const p of [...refPoints,...cablePoints]){
-    const px=p.x*scale+offsetX;
-    const py=p.y*scale+offsetY;
-    if(Math.hypot(px-sx,py-sy)<12) return p;
+    if(Math.hypot(p.x*scale+offsetX-sx,p.y*scale+offsetY-sy)<12) return p;
   }
   return null;
 }
@@ -187,47 +178,47 @@ function hitTest(x,y){
 /* ===== タッチ ===== */
 canvas.addEventListener("touchstart",e=>{
   e.preventDefault();
-  const t=e.touches[0];
-  draggingPoint=hitTest(t.clientX,t.clientY);
+  draggingPoint=hitTest(e.touches[0].clientX,e.touches[0].clientY);
 },{passive:false});
 
 canvas.addEventListener("touchmove",e=>{
   e.preventDefault();
-  if(draggingPoint){
-    const t=e.touches[0];
-    const p=screenToWorld(t.clientX,t.clientY);
-    draggingPoint.x=p.x;
-    draggingPoint.y=p.y;
-    draw();
-  }
+  if(!draggingPoint) return;
+  const p=screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
+  const arr = refPoints.includes(draggingPoint) ? refPoints : cablePoints;
+  arr.forEach(pt => pt.x = p.x);   // ✅ X完全同期
+  draggingPoint.y = p.y;
+  draw();
 },{passive:false});
 
 canvas.addEventListener("touchend",e=>{
   if(!draggingPoint){
-    const t=e.changedTouches[0];
-    const p=screenToWorld(t.clientX,t.clientY);
-    const arr=(mode==="ref")?refPoints:cablePoints;
+    const p=screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+    const arr = (mode==="ref") ? refPoints : cablePoints;
     if(arr.length<2){
       arr.push(p);
+      if(arr.length===2){
+        arr[1].x = arr[0].x; // ✅ 初期もX同期
+        if(mode==="ref") mode="cable";
+      }
       spiral={x:p.x,y:p.y,t:0,c:(mode==="ref")?"#f59e0b":"#dc2626"};
-      if(mode==="ref" && arr.length===2) mode="cable";
     }
   }
   draggingPoint=null;
   draw();
 });
 
-/* ===== ボタン ===== */
+/* ===== ボタン（変更なし） ===== */
 refBtn.onclick=()=>{
   mode="ref";
-  refPoints=[];cablePoints=[];
+  refPoints=[]; cablePoints=[];
   result.textContent="";
 };
 
 calcBtn.onclick=()=>{
   const dev=device.value;
   if(!dev||refPoints.length!==2||cablePoints.length!==2){
-    result.innerHTML="<span class='ng'>入力不足</span>";return;
+    result.innerHTML="<span class='ng'>入力不足</span>"; return;
   }
   const D=+shootDist.value, Hr=+refHeight.value;
   const cam=cameraDB[dev];
@@ -240,13 +231,13 @@ calcBtn.onclick=()=>{
 
 resetBtn.onclick=()=>{
   img.src="";
-  refPoints=[];cablePoints=[];
-  mode="ref";scale=1;offsetX=0;offsetY=0;
+  refPoints=[]; cablePoints=[];
+  mode="ref"; scale=1; offsetX=0; offsetY=0;
   result.textContent="";
   draw();
 };
 
-/* ===== 画像 ===== */
+/* ===== 画像読み込み（変更なし） ===== */
 fileInput.onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -73,7 +72,7 @@ input,select,button{
 
   <div id="result"></div>
   <div class="guide">
-    ①参照物 → ②ケーブル（下点はX軸自動一致）
+    ①参照物 → ②ケーブル（底点は自動共有）
   </div>
 </div>
 
@@ -89,7 +88,7 @@ let draggingPoint = null;
 let spiral = null;
 let dpr = window.devicePixelRatio || 1;
 
-/* ===== 下点判定（追加） ===== */
+/* ===== 下点取得 ===== */
 function getLowerPoint(arr){
   if(arr.length !== 2) return null;
   return arr[0].y > arr[1].y ? arr[0] : arr[1];
@@ -117,7 +116,6 @@ function draw(){
   drawVerticalLine(cablePoints,"#dc2626");
   drawPoints(refPoints,"#f59e0b");
   drawPoints(cablePoints,"#dc2626");
-  drawSpiral();
 }
 
 function drawVerticalLine(arr,color){
@@ -146,22 +144,7 @@ function drawPoints(arr,c){
   });
 }
 
-function drawSpiral(){
-  if(!spiral) return;
-  const {x,y,t,c}=spiral;
-  ctx.strokeStyle=c;
-  ctx.lineWidth=1.5/scale;
-  ctx.beginPath();
-  for(let a=0;a<t;a+=0.25){
-    const r=3*a;
-    ctx.lineTo(x+r*Math.cos(a),y+r*Math.sin(a));
-  }
-  ctx.stroke();
-  spiral.t+=0.4;
-  if(spiral.t<6) requestAnimationFrame(draw);
-  else spiral=null;
-}
-
+/* ===== 座標変換 ===== */
 function screenToWorld(x,y){
   const r=canvas.getBoundingClientRect();
   return {
@@ -190,21 +173,22 @@ canvas.addEventListener("touchmove",e=>{
   if(!draggingPoint) return;
 
   const p = screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
-  const arr = refPoints.includes(draggingPoint) ? refPoints : cablePoints;
+  const isRef = refPoints.includes(draggingPoint);
+  const arr = isRef ? refPoints : cablePoints;
 
-  // 垂直連動（既存）
   arr.forEach(pt => pt.x = p.x);
+  draggingPoint.y = p.y;
 
-  // ✅ ケーブル下点は参照物下点のXに固定
-  if(arr === cablePoints && refPoints.length === 2){
+  // ✅ 参照物の下点を動かしたら、赤点も完全追従
+  if(isRef && refPoints.length === 2 && cablePoints.length >= 1){
     const refBottom = getLowerPoint(refPoints);
-    const cableBottom = getLowerPoint(cablePoints);
-    if(draggingPoint === cableBottom){
-      draggingPoint.x = refBottom.x;
+    const cableBottom = cablePoints[0];
+    if(draggingPoint === refBottom){
+      cableBottom.x = refBottom.x;
+      cableBottom.y = refBottom.y;
     }
   }
 
-  draggingPoint.y = p.y;
   draw();
 },{passive:false});
 
@@ -213,21 +197,18 @@ canvas.addEventListener("touchend",e=>{
     const p = screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
     const arr = (mode==="ref") ? refPoints : cablePoints;
 
-    if(arr.length<2){
+    if(arr.length < 2){
       arr.push(p);
 
-      // ✅ ケーブル下点はXを自動一致
-      if(mode==="cable" && arr.length===2 && refPoints.length===2){
+      // ✅ 参照物の2点目が置かれたら、同時に赤の下点を生成
+      if(mode==="ref" && refPoints.length === 2){
         const refBottom = getLowerPoint(refPoints);
-        const cableBottom = getLowerPoint(cablePoints);
-        cableBottom.x = refBottom.x;
+        cablePoints = [{ x: refBottom.x, y: refBottom.y }];
+        mode = "cable";
       }
-
-      if(arr.length===2 && mode==="ref") mode="cable";
-      spiral={x:p.x,y:p.y,t:0,c:(mode==="ref")?"#f59e0b":"#dc2626"};
     }
   }
-  draggingPoint=null;
+  draggingPoint = null;
   draw();
 });
 
@@ -277,3 +258,4 @@ fileInput.onchange=e=>{
 
 </body>
 </html>
+``

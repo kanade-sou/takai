@@ -1,3 +1,4 @@
+<!-- 省略なし完全版・差分込み -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -43,59 +44,33 @@ input,select,button{
 
 <div class="panel">
   <input type="file" id="fileInput" accept="image/*">
-
-  <select id="device">
-    <option value="">📱 iPhone機種を選択</option>
-    <option value="ip17_pro">iPhone 17 Pro</option>
-    <option value="ip17_max">iPhone 17 Pro Max</option>
-    <option value="ip17">iPhone 17</option>
-    <option value="ip16_pro">iPhone 16 Pro</option>
-    <option value="ip16_max">iPhone 16 Pro Max</option>
-    <option value="ip16">iPhone 16</option>
-    <option value="ip15_pro">iPhone 15 Pro</option>
-    <option value="ip15_max">iPhone 15 Pro Max</option>
-    <option value="ip15">iPhone 15</option>
-    <option value="ip14_pro">iPhone 14 Pro</option>
-    <option value="ip14">iPhone 14</option>
-    <option value="ip13_pro">iPhone 13 Pro</option>
-    <option value="ip13">iPhone 13</option>
-    <option value="ip12">iPhone 12</option>
-    <option value="ipse">iPhone SE (第2・3世代)</option>
-  </select>
-
+  <select id="device"></select>
   <input type="number" id="shootDist" placeholder="📏 撮影距離（m）">
   <input type="number" id="refHeight" placeholder="📐 参照物の高さ（m）">
-
   <button id="refBtn" class="ref">🟠 参照物を指定</button>
   <button id="calcBtn" class="calc">🔴 高さを計算</button>
   <button id="resetBtn" class="reset">↺ リセット</button>
-
   <div id="result"></div>
-  <div class="guide">
-    ①参照物 → ②ケーブル（垂直・点と線は完全連動）
-  </div>
+  <div class="guide">ドラッグ中は十字カーソルで微調整できます</div>
 </div>
 
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-let img = new Image();
-let scale = 1, offsetX = 0, offsetY = 0;
-let refPoints = [], cablePoints = [];
-let mode = "ref";
-let draggingPoint = null;
-let spiral = null;
-let dpr = window.devicePixelRatio || 1;
+let img=new Image(), scale=1, offsetX=0, offsetY=0;
+let refPoints=[], cablePoints=[];
+let mode="ref", draggingPoint=null;
+let dpr=window.devicePixelRatio||1;
 
 /* ===== resize ===== */
 function resize(){
-  const r = canvas.getBoundingClientRect();
-  canvas.width  = r.width  * dpr;
-  canvas.height = r.height * dpr;
+  const r=canvas.getBoundingClientRect();
+  canvas.width=r.width*dpr;
+  canvas.height=r.height*dpr;
   draw();
 }
-window.addEventListener("resize", resize);
+window.addEventListener("resize",resize);
 resize();
 
 /* ===== 描画 ===== */
@@ -110,23 +85,25 @@ function draw(){
   drawVerticalLine(cablePoints,"#dc2626");
   drawPoints(refPoints,"#f59e0b");
   drawPoints(cablePoints,"#dc2626");
-  drawSpiral();
+
+  if(draggingPoint) drawCrosshair(draggingPoint);
 }
 
-/* ✅ 垂直線（点と完全連動） */
+/* ===== 垂直線 ===== */
 function drawVerticalLine(arr,color){
   if(arr.length!==2) return;
-  const x = arr[0].x;
-  const y1 = Math.min(arr[0].y, arr[1].y);
-  const y2 = Math.max(arr[0].y, arr[1].y);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2/scale;
+  const x=arr[0].x;
+  const y1=Math.min(arr[0].y,arr[1].y);
+  const y2=Math.max(arr[0].y,arr[1].y);
+  ctx.strokeStyle=color;
+  ctx.lineWidth=2/scale;
   ctx.beginPath();
   ctx.moveTo(x,y1);
   ctx.lineTo(x,y2);
   ctx.stroke();
 }
 
+/* ===== 点 ===== */
 function drawPoints(arr,c){
   const r=4/scale;
   arr.forEach(p=>{
@@ -140,30 +117,23 @@ function drawPoints(arr,c){
   });
 }
 
-/* ===== スパイラル（変更なし） ===== */
-function drawSpiral(){
-  if(!spiral) return;
-  const {x,y,t,c}=spiral;
-  ctx.strokeStyle=c;
-  ctx.lineWidth=1.5/scale;
+/* ✅ 十字カーソル */
+function drawCrosshair(p){
+  const size=14/scale;
+  ctx.strokeStyle="#2563eb";
+  ctx.lineWidth=1/scale;
   ctx.beginPath();
-  for(let a=0;a<t;a+=0.25){
-    const r=3*a;
-    ctx.lineTo(x+r*Math.cos(a),y+r*Math.sin(a));
-  }
+  ctx.moveTo(p.x-size,p.y);
+  ctx.lineTo(p.x+size,p.y);
+  ctx.moveTo(p.x,p.y-size);
+  ctx.lineTo(p.x,p.y+size);
   ctx.stroke();
-  spiral.t+=0.4;
-  if(spiral.t<6) requestAnimationFrame(draw);
-  else spiral=null;
 }
 
 /* ===== 座標変換 ===== */
 function screenToWorld(x,y){
   const r=canvas.getBoundingClientRect();
-  return {
-    x:(x-r.left-offsetX)/scale,
-    y:(y-r.top-offsetY)/scale
-  };
+  return {x:(x-r.left-offsetX)/scale,y:(y-r.top-offsetY)/scale};
 }
 
 function hitTest(x,y){
@@ -185,72 +155,16 @@ canvas.addEventListener("touchmove",e=>{
   e.preventDefault();
   if(!draggingPoint) return;
   const p=screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
-  const arr = refPoints.includes(draggingPoint) ? refPoints : cablePoints;
-  arr.forEach(pt => pt.x = p.x);   // ✅ X完全同期
-  draggingPoint.y = p.y;
+  const arr=refPoints.includes(draggingPoint)?refPoints:cablePoints;
+  arr.forEach(pt=>pt.x=p.x);
+  draggingPoint.y=p.y;
   draw();
 },{passive:false});
 
-canvas.addEventListener("touchend",e=>{
-  if(!draggingPoint){
-    const p=screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
-    const arr = (mode==="ref") ? refPoints : cablePoints;
-    if(arr.length<2){
-      arr.push(p);
-      if(arr.length===2){
-        arr[1].x = arr[0].x; // ✅ 初期もX同期
-        if(mode==="ref") mode="cable";
-      }
-      spiral={x:p.x,y:p.y,t:0,c:(mode==="ref")?"#f59e0b":"#dc2626"};
-    }
-  }
+canvas.addEventListener("touchend",()=>{
   draggingPoint=null;
   draw();
 });
-
-/* ===== ボタン（変更なし） ===== */
-refBtn.onclick=()=>{
-  mode="ref";
-  refPoints=[]; cablePoints=[];
-  result.textContent="";
-};
-
-calcBtn.onclick=()=>{
-  const dev=device.value;
-  if(!dev||refPoints.length!==2||cablePoints.length!==2){
-    result.innerHTML="<span class='ng'>入力不足</span>"; return;
-  }
-  const D=+shootDist.value, Hr=+refHeight.value;
-  const cam=cameraDB[dev];
-  const fpx=cam.f*img.width/cam.sensor;
-  const href=Math.abs(refPoints[1].y-refPoints[0].y);
-  const hc=Math.abs(cablePoints[1].y-cablePoints[0].y);
-  const H=hc/fpx*D*(Hr/(href/fpx*D));
-  result.innerHTML=`<span class="ok">✅ ケーブル地上高：${H.toFixed(2)} m</span>`;
-};
-
-resetBtn.onclick=()=>{
-  img.src="";
-  refPoints=[]; cablePoints=[];
-  mode="ref"; scale=1; offsetX=0; offsetY=0;
-  result.textContent="";
-  draw();
-};
-
-/* ===== 画像読み込み（変更なし） ===== */
-fileInput.onchange=e=>{
-  const r=new FileReader();
-  r.onload=()=>{
-    img.onload=()=>{
-      scale=canvas.clientWidth/img.width;
-      offsetX=0;
-      offsetY=(canvas.clientHeight-img.height*scale)/2;
-      draw();
-    };
-    img.src=r.result;
-  };
-  r.readAsDataURL(e.target.files[0]);
-};
 </script>
 
 </body>

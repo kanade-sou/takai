@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -80,33 +81,31 @@ input,select,button{
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-let img = new Image();
-let scale = 1, offsetX = 0, offsetY = 0;
-let refPoints = [], cablePoints = [];
-let mode = "ref";
-let draggingPoint = null;
-let dpr = window.devicePixelRatio || 1;
+let img=new Image();
+let scale=1, offsetX=0, offsetY=0;
+let refPoints=[], cablePoints=[];
+let mode="ref", draggingPoint=null;
+let dpr=window.devicePixelRatio||1;
 
-/* ✅ 表示用オフセット（ここだけが新要素） */
-const DISPLAY_OFFSET = 14; // px（見やすさ用）
+const DISPLAY_OFFSET = 14;
 
-/* ===== 下点取得 ===== */
+/* 下点取得 */
 function getLowerPoint(arr){
-  if(arr.length !== 2) return null;
+  if(arr.length!==2) return null;
   return arr[0].y > arr[1].y ? arr[0] : arr[1];
 }
 
-/* ===== resize ===== */
+/* resize */
 function resize(){
-  const r = canvas.getBoundingClientRect();
-  canvas.width  = r.width  * dpr;
-  canvas.height = r.height * dpr;
+  const r=canvas.getBoundingClientRect();
+  canvas.width=r.width*dpr;
+  canvas.height=r.height*dpr;
   draw();
 }
-window.addEventListener("resize", resize);
+window.addEventListener("resize",resize);
 resize();
 
-/* ===== 描画 ===== */
+/* 描画 */
 function draw(){
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -114,26 +113,23 @@ function draw(){
   ctx.setTransform(dpr*scale,0,0,dpr*scale,offsetX*dpr,offsetY*dpr);
   ctx.drawImage(img,0,0);
 
-  const dx = DISPLAY_OFFSET / scale;
-
-  drawVerticalLine(refPoints,"#f59e0b",-dx);
-  drawVerticalLine(cablePoints,"#dc2626", dx);
+  const dx=DISPLAY_OFFSET/scale;
+  drawVertical(refPoints,"#f59e0b",-dx);
+  drawVertical(cablePoints,"#dc2626", dx);
   drawPoints(refPoints,"#f59e0b",-dx);
   drawPoints(cablePoints,"#dc2626", dx);
 }
 
-/* ✅ 表示オフセット対応の垂直線 */
-function drawVerticalLine(arr,color,dx){
-  if(arr.length !== 2) return;
-  const base = getLowerPoint(arr);
-  const y1 = Math.min(arr[0].y, arr[1].y);
-  const y2 = Math.max(arr[0].y, arr[1].y);
-
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2/scale;
+function drawVertical(arr,color,dx){
+  if(arr.length!==2) return;
+  const base=getLowerPoint(arr);
+  const y1=Math.min(arr[0].y,arr[1].y);
+  const y2=Math.max(arr[0].y,arr[1].y);
+  ctx.strokeStyle=color;
+  ctx.lineWidth=2/scale;
   ctx.beginPath();
-  ctx.moveTo(base.x + dx, y1);
-  ctx.lineTo(base.x + dx, y2);
+  ctx.moveTo(base.x+dx,y1);
+  ctx.lineTo(base.x+dx,y2);
   ctx.stroke();
 }
 
@@ -141,7 +137,7 @@ function drawPoints(arr,c,dx){
   const r=4/scale;
   arr.forEach(p=>{
     ctx.beginPath();
-    ctx.arc(p.x + dx, p.y, r, 0, Math.PI*2);
+    ctx.arc(p.x+dx,p.y,r,0,Math.PI*2);
     ctx.fillStyle=c;
     ctx.fill();
     ctx.strokeStyle="#fff";
@@ -150,14 +146,10 @@ function drawPoints(arr,c,dx){
   });
 }
 
-/* ===== 以下は元のコードから一切変更なし ===== */
-
+/* 座標変換 */
 function screenToWorld(x,y){
   const r=canvas.getBoundingClientRect();
-  return {
-    x:(x-r.left-offsetX)/scale,
-    y:(y-r.top-offsetY)/scale
-  };
+  return {x:(x-r.left-offsetX)/scale,y:(y-r.top-offsetY)/scale};
 }
 
 function hitTest(x,y){
@@ -169,94 +161,46 @@ function hitTest(x,y){
   return null;
 }
 
+/* タッチ */
 canvas.addEventListener("touchstart",e=>{
   e.preventDefault();
-  draggingPoint = hitTest(e.touches[0].clientX,e.touches[0].clientY);
+  draggingPoint=hitTest(e.touches[0].clientX,e.touches[0].clientY);
 },{passive:false});
 
 canvas.addEventListener("touchmove",e=>{
   e.preventDefault();
   if(!draggingPoint) return;
 
-  const p = screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
-  const isRef = refPoints.includes(draggingPoint);
-  const arr = isRef ? refPoints : cablePoints;
+  const p=screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
+  const arr=refPoints.includes(draggingPoint)?refPoints:cablePoints;
+  const base=getLowerPoint(arr);
 
-  arr.forEach(pt => pt.x = p.x);
-  draggingPoint.y = p.y;
-
-  if(isRef && refPoints.length===2 && cablePoints.length>=1){
-    const refBottom = getLowerPoint(refPoints);
-    const cableBottom = cablePoints[0];
-    if(draggingPoint === refBottom){
-      cableBottom.x = refBottom.x;
-      cableBottom.y = refBottom.y;
-    }
-  }
+  draggingPoint.y=p.y;
+  draggingPoint.x=base.x; // ✅ 常に完全垂直
 
   draw();
 },{passive:false});
 
 canvas.addEventListener("touchend",e=>{
   if(!draggingPoint){
-    const p = screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
-    const arr = (mode==="ref") ? refPoints : cablePoints;
+    const p=screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+    const arr=(mode==="ref")?refPoints:cablePoints;
 
-    if(arr.length < 2){
-      arr.push(p);
-
-      if(mode==="ref" && refPoints.length===2){
-        const refBottom = getLowerPoint(refPoints);
-        cablePoints = [{ x: refBottom.x, y: refBottom.y }];
-        mode="cable";
+    if(arr.length<2){
+      arr.push({x:p.x,y:p.y});
+      if(arr.length===2){
+        const base=getLowerPoint(arr);
+        arr.forEach(pt=>pt.x=base.x);
+        if(mode==="ref"){
+          cablePoints=[{x:base.x,y:base.y}];
+          mode="cable";
+        }
       }
     }
   }
   draggingPoint=null;
   draw();
 });
-
-refBtn.onclick=()=>{
-  mode="ref";
-  refPoints=[]; cablePoints=[];
-  result.textContent="";
-};
-
-calcBtn.onclick=()=>{
-  const dev=device.value;
-  if(!dev||refPoints.length!==2||cablePoints.length!==2){
-    result.innerHTML="<span class='ng'>入力不足</span>"; return;
-  }
-  const D=+shootDist.value, Hr=+refHeight.value;
-  const cam=cameraDB[dev];
-  const fpx=cam.f*img.width/cam.sensor;
-  const href=Math.abs(refPoints[1].y-refPoints[0].y);
-  const hc=Math.abs(cablePoints[1].y-cablePoints[0].y);
-  const H=hc/fpx*D*(Hr/(href/fpx*D));
-  result.innerHTML=`<span class="ok">✅ ケーブル地上高：${H.toFixed(2)} m</span>`;
-};
-
-resetBtn.onclick=()=>{
-  img.src="";
-  refPoints=[]; cablePoints=[];
-  mode="ref"; scale=1; offsetX=0; offsetY=0;
-  result.textContent="";
-  draw();
-};
-
-fileInput.onchange=e=>{
-  const r=new FileReader();
-  r.onload=()=>{
-    img.onload=()=>{
-      scale=canvas.clientWidth/img.width;
-      offsetX=0;
-      offsetY=(canvas.clientHeight-img.height*scale)/2;
-      draw();
-    };
-    img.src=r.result;
-  };
-  r.readAsDataURL(e.target.files[0]);
-};
 </script>
 
 </body>

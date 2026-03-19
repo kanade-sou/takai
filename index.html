@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -73,7 +72,7 @@ input,select,button{
 
   <div id="result"></div>
   <div class="guide">
-    ①参照物 → ②ケーブル（表示のみ横ずらし）
+    底点は1つだけ共有（ズレ完全ゼロ）
   </div>
 </div>
 
@@ -83,17 +82,16 @@ const ctx = canvas.getContext("2d");
 
 let img=new Image();
 let scale=1, offsetX=0, offsetY=0;
-let refPoints=[], cablePoints=[];
-let mode="ref", draggingPoint=null;
 let dpr=window.devicePixelRatio||1;
 
-const DISPLAY_OFFSET = 14;
+let bottomPoint = null;
+let refTop = null;
+let cableTop = null;
 
-/* 下点取得 */
-function getLowerPoint(arr){
-  if(arr.length!==2) return null;
-  return arr[0].y > arr[1].y ? arr[0] : arr[1];
-}
+let mode="ref"; // ref -> cable
+let draggingPoint=null;
+
+const DISPLAY_OFFSET = 14;
 
 /* resize */
 function resize(){
@@ -109,41 +107,40 @@ resize();
 function draw(){
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
-
   ctx.setTransform(dpr*scale,0,0,dpr*scale,offsetX*dpr,offsetY*dpr);
   ctx.drawImage(img,0,0);
 
-  const dx=DISPLAY_OFFSET/scale;
-  drawVertical(refPoints,"#f59e0b",-dx);
-  drawVertical(cablePoints,"#dc2626", dx);
-  drawPoints(refPoints,"#f59e0b",-dx);
-  drawPoints(cablePoints,"#dc2626", dx);
+  if(bottomPoint && refTop){
+    drawLine(refTop,bottomPoint,"#f59e0b",-DISPLAY_OFFSET/scale);
+  }
+  if(bottomPoint && cableTop){
+    drawLine(cableTop,bottomPoint,"#dc2626", DISPLAY_OFFSET/scale);
+  }
+
+  drawPoint(bottomPoint,"#fbbf24");
+  drawPoint(refTop,"#f59e0b",-DISPLAY_OFFSET/scale);
+  drawPoint(cableTop,"#dc2626", DISPLAY_OFFSET/scale);
 }
 
-function drawVertical(arr,color,dx){
-  if(arr.length!==2) return;
-  const base=getLowerPoint(arr);
-  const y1=Math.min(arr[0].y,arr[1].y);
-  const y2=Math.max(arr[0].y,arr[1].y);
+function drawLine(top,bottom,color,dx){
   ctx.strokeStyle=color;
   ctx.lineWidth=2/scale;
   ctx.beginPath();
-  ctx.moveTo(base.x+dx,y1);
-  ctx.lineTo(base.x+dx,y2);
+  ctx.moveTo(bottom.x+dx,bottom.y);
+  ctx.lineTo(top.x+dx,top.y);
   ctx.stroke();
 }
 
-function drawPoints(arr,c,dx){
+function drawPoint(p,color,dx=0){
+  if(!p) return;
   const r=4/scale;
-  arr.forEach(p=>{
-    ctx.beginPath();
-    ctx.arc(p.x+dx,p.y,r,0,Math.PI*2);
-    ctx.fillStyle=c;
-    ctx.fill();
-    ctx.strokeStyle="#fff";
-    ctx.lineWidth=1/scale;
-    ctx.stroke();
-  });
+  ctx.beginPath();
+  ctx.arc(p.x+dx,p.y,r,0,Math.PI*2);
+  ctx.fillStyle=color;
+  ctx.fill();
+  ctx.strokeStyle="#fff";
+  ctx.lineWidth=1/scale;
+  ctx.stroke();
 }
 
 /* 座標変換 */
@@ -152,11 +149,12 @@ function screenToWorld(x,y){
   return {x:(x-r.left-offsetX)/scale,y:(y-r.top-offsetY)/scale};
 }
 
+/* ヒットテスト */
 function hitTest(x,y){
   const r=canvas.getBoundingClientRect();
   const sx=x-r.left, sy=y-r.top;
-  for(const p of [...refPoints,...cablePoints]){
-    if(Math.hypot(p.x*scale+offsetX-sx,p.y*scale+offsetY-sy)<12) return p;
+  for(const p of [bottomPoint,refTop,cableTop]){
+    if(p && Math.hypot(p.x*scale+offsetX-sx,p.y*scale+offsetY-sy)<12) return p;
   }
   return null;
 }
@@ -170,37 +168,62 @@ canvas.addEventListener("touchstart",e=>{
 canvas.addEventListener("touchmove",e=>{
   e.preventDefault();
   if(!draggingPoint) return;
-
   const p=screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
-  const arr=refPoints.includes(draggingPoint)?refPoints:cablePoints;
-  const base=getLowerPoint(arr);
-
+  draggingPoint.x=p.x;
   draggingPoint.y=p.y;
-  draggingPoint.x=base.x; // ✅ 常に完全垂直
-
   draw();
 },{passive:false});
 
 canvas.addEventListener("touchend",e=>{
   if(!draggingPoint){
     const p=screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
-    const arr=(mode==="ref")?refPoints:cablePoints;
-
-    if(arr.length<2){
-      arr.push({x:p.x,y:p.y});
-      if(arr.length===2){
-        const base=getLowerPoint(arr);
-        arr.forEach(pt=>pt.x=base.x);
-        if(mode==="ref"){
-          cablePoints=[{x:base.x,y:base.y}];
-          mode="cable";
-        }
+    if(mode==="ref"){
+      if(!refTop) refTop=p;
+      else{
+        bottomPoint=p;
+        mode="cable";
       }
+    }else{
+      if(!cableTop) cableTop=p;
     }
   }
   draggingPoint=null;
   draw();
 });
+
+/* ボタン */
+refBtn.onclick=()=>{
+  mode="ref";
+  bottomPoint=null;
+  refTop=null;
+  cableTop=null;
+  result.textContent="";
+};
+
+resetBtn.onclick=()=>{
+  img.src="";
+  bottomPoint=null;
+  refTop=null;
+  cableTop=null;
+  mode="ref";
+  scale=1; offsetX=0; offsetY=0;
+  result.textContent="";
+  draw();
+};
+
+fileInput.onchange=e=>{
+  const r=new FileReader();
+  r.onload=()=>{
+    img.onload=()=>{
+      scale=canvas.clientWidth/img.width;
+      offsetX=0;
+      offsetY=(canvas.clientHeight-img.height*scale)/2;
+      draw();
+    };
+    img.src=r.result;
+  };
+  r.readAsDataURL(e.target.files[0]);
+};
 </script>
 
 </body>

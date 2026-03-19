@@ -93,6 +93,14 @@ function getLowerPoint(arr){
   return arr[0].y > arr[1].y ? arr[0] : arr[1];
 }
 
+/* ✅ 初期ズレ防止用（追加） */
+function syncBottom(){
+  if(refPoints.length !== 2 || cablePoints.length < 1) return;
+  const refBottom = getLowerPoint(refPoints);
+  cablePoints[0].x = refBottom.x;
+  cablePoints[0].y = refBottom.y;
+}
+
 /* ===== resize ===== */
 function resize(){
   const r = canvas.getBoundingClientRect();
@@ -117,18 +125,16 @@ function draw(){
   drawPoints(cablePoints,"#dc2626");
 }
 
-/* ✅ 点と完全連動する垂直線 */
 function drawVerticalLine(arr,color){
   if(arr.length !== 2) return;
-  const base = getLowerPoint(arr);   // ← 常に下点
+  const base = getLowerPoint(arr);
   const y1 = Math.min(arr[0].y, arr[1].y);
   const y2 = Math.max(arr[0].y, arr[1].y);
-
   ctx.strokeStyle = color;
   ctx.lineWidth = 2/scale;
   ctx.beginPath();
-  ctx.moveTo(base.x, y1);
-  ctx.lineTo(base.x, y2);
+  ctx.moveTo(base.x,y1);
+  ctx.lineTo(base.x,y2);
   ctx.stroke();
 }
 
@@ -145,7 +151,6 @@ function drawPoints(arr,c){
   });
 }
 
-/* ===== 座標変換 ===== */
 function screenToWorld(x,y){
   const r=canvas.getBoundingClientRect();
   return {
@@ -180,7 +185,6 @@ canvas.addEventListener("touchmove",e=>{
   arr.forEach(pt => pt.x = p.x);
   draggingPoint.y = p.y;
 
-  // ✅ 底点共有：参照物下点を動かすと赤点も追従
   if(isRef && refPoints.length===2 && cablePoints.length>=1){
     const refBottom = getLowerPoint(refPoints);
     const cableBottom = cablePoints[0];
@@ -201,10 +205,10 @@ canvas.addEventListener("touchend",e=>{
     if(arr.length < 2){
       arr.push(p);
 
-      // ✅ 参照物の下点確定時に赤点を同時生成
       if(mode==="ref" && refPoints.length===2){
         const refBottom = getLowerPoint(refPoints);
         cablePoints = [{ x: refBottom.x, y: refBottom.y }];
+        syncBottom();     // ✅ バグ修正ポイント
         mode="cable";
       }
     }
@@ -259,4 +263,3 @@ fileInput.onchange=e=>{
 
 </body>
 </html>
-``

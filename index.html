@@ -72,7 +72,7 @@ input,select,button{
 
   <div id="result"></div>
   <div class="guide">
-    ①参照物 → ②ケーブル（表示のみ横ずらし）
+    ①参照物 → ②ケーブル（垂直・点と線は完全連動）
   </div>
 </div>
 
@@ -85,16 +85,8 @@ let scale = 1, offsetX = 0, offsetY = 0;
 let refPoints = [], cablePoints = [];
 let mode = "ref";
 let draggingPoint = null;
+let spiral = null;
 let dpr = window.devicePixelRatio || 1;
-
-/* ✅ 表示用オフセット（ここだけが新要素） */
-const DISPLAY_OFFSET = 14; // px（見やすさ用）
-
-/* ===== 下点取得 ===== */
-function getLowerPoint(arr){
-  if(arr.length !== 2) return null;
-  return arr[0].y > arr[1].y ? arr[0] : arr[1];
-}
 
 /* ===== resize ===== */
 function resize(){
@@ -114,34 +106,32 @@ function draw(){
   ctx.setTransform(dpr*scale,0,0,dpr*scale,offsetX*dpr,offsetY*dpr);
   ctx.drawImage(img,0,0);
 
-  const dx = DISPLAY_OFFSET / scale;
-
-  drawVerticalLine(refPoints,"#f59e0b",-dx);
-  drawVerticalLine(cablePoints,"#dc2626", dx);
-  drawPoints(refPoints,"#f59e0b",-dx);
-  drawPoints(cablePoints,"#dc2626", dx);
+  drawVerticalLine(refPoints,"#f59e0b");
+  drawVerticalLine(cablePoints,"#dc2626");
+  drawPoints(refPoints,"#f59e0b");
+  drawPoints(cablePoints,"#dc2626");
+  drawSpiral();
 }
 
-/* ✅ 表示オフセット対応の垂直線 */
-function drawVerticalLine(arr,color,dx){
-  if(arr.length !== 2) return;
-  const base = getLowerPoint(arr);
+/* 垂直線（点と完全連動） */
+function drawVerticalLine(arr,color){
+  if(arr.length!==2) return;
+  const x = arr[0].x;
   const y1 = Math.min(arr[0].y, arr[1].y);
   const y2 = Math.max(arr[0].y, arr[1].y);
-
   ctx.strokeStyle = color;
   ctx.lineWidth = 2/scale;
   ctx.beginPath();
-  ctx.moveTo(base.x + dx, y1);
-  ctx.lineTo(base.x + dx, y2);
+  ctx.moveTo(x,y1);
+  ctx.lineTo(x,y2);
   ctx.stroke();
 }
 
-function drawPoints(arr,c,dx){
+function drawPoints(arr,c){
   const r=4/scale;
   arr.forEach(p=>{
     ctx.beginPath();
-    ctx.arc(p.x + dx, p.y, r, 0, Math.PI*2);
+    ctx.arc(p.x,p.y,r,0,Math.PI*2);
     ctx.fillStyle=c;
     ctx.fill();
     ctx.strokeStyle="#fff";
@@ -150,8 +140,24 @@ function drawPoints(arr,c,dx){
   });
 }
 
-/* ===== 以下は元のコードから一切変更なし ===== */
+/* スパイラル */
+function drawSpiral(){
+  if(!spiral) return;
+  const {x,y,t,c}=spiral;
+  ctx.strokeStyle=c;
+  ctx.lineWidth=1.5/scale;
+  ctx.beginPath();
+  for(let a=0;a<t;a+=0.25){
+    const r=3*a;
+    ctx.lineTo(x+r*Math.cos(a),y+r*Math.sin(a));
+  }
+  ctx.stroke();
+  spiral.t+=0.4;
+  if(spiral.t<6) requestAnimationFrame(draw);
+  else spiral=null;
+}
 
+/* 座標変換 */
 function screenToWorld(x,y){
   const r=canvas.getBoundingClientRect();
   return {
@@ -169,6 +175,7 @@ function hitTest(x,y){
   return null;
 }
 
+/* ===== タッチ ===== */
 canvas.addEventListener("touchstart",e=>{
   e.preventDefault();
   draggingPoint = hitTest(e.touches[0].clientX,e.touches[0].clientY);
@@ -177,45 +184,31 @@ canvas.addEventListener("touchstart",e=>{
 canvas.addEventListener("touchmove",e=>{
   e.preventDefault();
   if(!draggingPoint) return;
-
-  const p = screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
-  const isRef = refPoints.includes(draggingPoint);
-  const arr = isRef ? refPoints : cablePoints;
-
+  const p=screenToWorld(e.touches[0].clientX,e.touches[0].clientY);
+  const arr = refPoints.includes(draggingPoint) ? refPoints : cablePoints;
   arr.forEach(pt => pt.x = p.x);
   draggingPoint.y = p.y;
-
-  if(isRef && refPoints.length===2 && cablePoints.length>=1){
-    const refBottom = getLowerPoint(refPoints);
-    const cableBottom = cablePoints[0];
-    if(draggingPoint === refBottom){
-      cableBottom.x = refBottom.x;
-      cableBottom.y = refBottom.y;
-    }
-  }
-
   draw();
 },{passive:false});
 
 canvas.addEventListener("touchend",e=>{
   if(!draggingPoint){
-    const p = screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
+    const p=screenToWorld(e.changedTouches[0].clientX,e.changedTouches[0].clientY);
     const arr = (mode==="ref") ? refPoints : cablePoints;
-
-    if(arr.length < 2){
+    if(arr.length<2){
       arr.push(p);
-
-      if(mode==="ref" && refPoints.length===2){
-        const refBottom = getLowerPoint(refPoints);
-        cablePoints = [{ x: refBottom.x, y: refBottom.y }];
-        mode="cable";
+      if(arr.length===2){
+        arr[1].x = arr[0].x;
+        if(mode==="ref") mode="cable";
       }
+      spiral={x:p.x,y:p.y,t:0,c:(mode==="ref")?"#f59e0b":"#dc2626"};
     }
   }
   draggingPoint=null;
   draw();
 });
 
+/* ===== ボタン ===== */
 refBtn.onclick=()=>{
   mode="ref";
   refPoints=[]; cablePoints=[];
@@ -244,6 +237,7 @@ resetBtn.onclick=()=>{
   draw();
 };
 
+/* 画像読み込み */
 fileInput.onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{

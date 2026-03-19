@@ -75,7 +75,7 @@ input,select,button{
 
   <div id="result"></div>
   <div class="guide">
-    ①参照物 → ②ケーブルを上下2点（ドラッグ＋ルーペで微調整）
+    ①参照物 → ②ケーブルを上下2点（縦線で自動整列）
   </div>
 </div>
 
@@ -92,12 +92,7 @@ let spiral = null;
 
 let dpr = window.devicePixelRatio || 1;
 
-/* ===== ルーペ設定（小型版） ===== */
-let showLoupe=false, loupeX=0, loupeY=0;
-const LOUPE_SIZE = 80;   // ← 小さく
-const LOUPE_ZOOM = 2.5; // ← 少し控えめ
-
-/* ===== resize（DPR対応） ===== */
+/* ===== resize ===== */
 function resize(){
   const r = canvas.getBoundingClientRect();
   dpr = window.devicePixelRatio || 1;
@@ -116,28 +111,31 @@ function draw(){
   ctx.setTransform(dpr*scale,0,0,dpr*scale,offsetX*dpr,offsetY*dpr);
   ctx.drawImage(img,0,0);
 
-  drawLine(refPoints,"#f59e0b");
-  drawLine(cablePoints,"#dc2626");
+  drawVerticalLine(refPoints,"#f59e0b");
+  drawVerticalLine(cablePoints,"#dc2626");
   drawPoints(refPoints,"#f59e0b");
   drawPoints(cablePoints,"#dc2626");
   drawSpiral();
-  drawLoupe();
 }
 
-function drawLine(arr,c){
-  if(arr.length===2){
-    ctx.strokeStyle=c;
-    ctx.lineWidth=2/scale;
-    ctx.beginPath();
-    ctx.moveTo(arr[0].x,arr[0].y);
-    ctx.lineTo(arr[1].x,arr[1].y);
-    ctx.stroke();
-  }
+/* ✅ 垂直線描画 */
+function drawVerticalLine(arr,color){
+  if(arr.length!==2) return;
+
+  const x = (arr[0].x + arr[1].x) / 2;
+  const y1 = Math.min(arr[0].y, arr[1].y);
+  const y2 = Math.max(arr[0].y, arr[1].y);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2 / scale;
+  ctx.beginPath();
+  ctx.moveTo(x, y1);
+  ctx.lineTo(x, y2);
+  ctx.stroke();
 }
 
-/* ✅ 点を小さく */
 function drawPoints(arr,c){
-  const r=4/scale;      // ← 小さく
+  const r=4/scale;
   arr.forEach(p=>{
     ctx.beginPath();
     ctx.arc(p.x,p.y,r,0,Math.PI*2);
@@ -166,36 +164,6 @@ function drawSpiral(){
   else spiral=null;
 }
 
-/* ===== ルーペ（小型） ===== */
-function drawLoupe(){
-  if(!showLoupe) return;
-  ctx.setTransform(1,0,0,1,0,0);
-
-  const s=LOUPE_SIZE,z=LOUPE_ZOOM;
-  const sx=loupeX-s/(2*z), sy=loupeY-s/(2*z);
-
-  ctx.fillStyle="#fff";
-  ctx.fillRect(loupeX-s/2,loupeY-s/2,s,s);
-
-  ctx.drawImage(
-    canvas,
-    sx*dpr,sy*dpr,(s/z)*dpr,(s/z)*dpr,
-    loupeX-s/2,loupeY-s/2,s,s
-  );
-
-  ctx.strokeStyle="#2563eb";
-  ctx.lineWidth=1.5;
-  ctx.strokeRect(loupeX-s/2,loupeY-s/2,s,s);
-
-  ctx.strokeStyle="#dc2626";
-  ctx.beginPath();
-  ctx.moveTo(loupeX,loupeY-s/2);
-  ctx.lineTo(loupeX,loupeY+s/2);
-  ctx.moveTo(loupeX-s/2,loupeY);
-  ctx.lineTo(loupeX+s/2,loupeY);
-  ctx.stroke();
-}
-
 /* ===== 座標変換 ===== */
 function screenToWorld(x,y){
   const r=canvas.getBoundingClientRect();
@@ -204,6 +172,7 @@ function screenToWorld(x,y){
     y:(y-r.top-offsetY)/scale
   };
 }
+
 function hitTest(x,y){
   const r=canvas.getBoundingClientRect();
   const sx=x-r.left, sy=y-r.top;
@@ -220,11 +189,6 @@ canvas.addEventListener("touchstart",e=>{
   e.preventDefault();
   const t=e.touches[0];
   draggingPoint=hitTest(t.clientX,t.clientY);
-  if(draggingPoint){
-    showLoupe=true;
-    loupeX=t.clientX;
-    loupeY=t.clientY-60;
-  }
 },{passive:false});
 
 canvas.addEventListener("touchmove",e=>{
@@ -234,8 +198,6 @@ canvas.addEventListener("touchmove",e=>{
     const p=screenToWorld(t.clientX,t.clientY);
     draggingPoint.x=p.x;
     draggingPoint.y=p.y;
-    loupeX=t.clientX;
-    loupeY=t.clientY-60;
     draw();
   }
 },{passive:false});
@@ -248,10 +210,9 @@ canvas.addEventListener("touchend",e=>{
     if(arr.length<2){
       arr.push(p);
       spiral={x:p.x,y:p.y,t:0,c:(mode==="ref")?"#f59e0b":"#dc2626"};
-      if(mode==="ref"&&arr.length===2) mode="cable";
+      if(mode==="ref" && arr.length===2) mode="cable";
     }
   }
-  showLoupe=false;
   draggingPoint=null;
   draw();
 });
@@ -262,6 +223,7 @@ refBtn.onclick=()=>{
   refPoints=[];cablePoints=[];
   result.textContent="";
 };
+
 calcBtn.onclick=()=>{
   const dev=device.value;
   if(!dev||refPoints.length!==2||cablePoints.length!==2){
@@ -275,6 +237,7 @@ calcBtn.onclick=()=>{
   const H=hc/fpx*D*(Hr/(href/fpx*D));
   result.innerHTML=`<span class="ok">✅ ケーブル地上高：${H.toFixed(2)} m</span>`;
 };
+
 resetBtn.onclick=()=>{
   img.src="";
   refPoints=[];cablePoints=[];

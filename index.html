@@ -33,18 +33,6 @@ input,select,button{
 .ok{color:#16a34a;font-weight:bold;}
 .ng{color:#dc2626;font-weight:bold;}
 .guide{font-size:13px;color:#374151;margin-top:6px;}
-
-/* 十字キー用 */
-.dpad{
-  margin-top:12px;
-  text-align:center;
-}
-.dpad button{
-  width:56px;
-  height:44px;
-  margin:2px;
-  font-size:20px;
-}
 </style>
 </head>
 
@@ -86,17 +74,6 @@ input,select,button{
   <div class="guide">
     ①参照物 → ②ケーブル（垂直・点と線は完全連動）
   </div>
-
-  <!-- ✅ 十字キー追加 -->
-  <div class="dpad">
-    <div><button onclick="nudge(0,-1)">⬆</button></div>
-    <div>
-      <button onclick="nudge(-1,0)">⬅</button>
-      <button onclick="nudge(1,0)">➡</button>
-    </div>
-    <div><button onclick="nudge(0,1)">⬇</button></div>
-    <div class="guide">十字キーで1pxずつ微調整</div>
-  </div>
 </div>
 
 <script>
@@ -108,7 +85,6 @@ let scale = 1, offsetX = 0, offsetY = 0;
 let refPoints = [], cablePoints = [];
 let mode = "ref";
 let draggingPoint = null;
-let activePoint = null;   // ✅ 十字キー対象
 let spiral = null;
 let dpr = window.devicePixelRatio || 1;
 
@@ -137,7 +113,7 @@ function draw(){
   drawSpiral();
 }
 
-/* 垂直線 */
+/* 垂直線（点と完全連動） */
 function drawVerticalLine(arr,color){
   if(arr.length!==2) return;
   const x = arr[0].x;
@@ -203,7 +179,6 @@ function hitTest(x,y){
 canvas.addEventListener("touchstart",e=>{
   e.preventDefault();
   draggingPoint = hitTest(e.touches[0].clientX,e.touches[0].clientY);
-  activePoint = draggingPoint;   // ✅ 十字キー対象
 },{passive:false});
 
 canvas.addEventListener("touchmove",e=>{
@@ -232,19 +207,6 @@ canvas.addEventListener("touchend",e=>{
   draggingPoint=null;
   draw();
 });
-
-/* ===== 十字キー微調整 ===== */
-function nudge(dx,dy){
-  if(!activePoint) return;
-  const step = 1 / scale;
-  const arr = refPoints.includes(activePoint) ? refPoints : cablePoints;
-
-  if(dx!==0){
-    arr.forEach(p => p.x += dx * step);
-  }
-  activePoint.y += dy * step;
-  draw();
-}
 
 /* ===== ボタン ===== */
 refBtn.onclick=()=>{

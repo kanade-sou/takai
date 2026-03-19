@@ -72,7 +72,7 @@ input,select,button{
 
   <div id="result"></div>
   <div class="guide">
-    ①参照物 → ②ケーブル（底点は自動共有）
+    ①参照物 → ②ケーブル（底点共有・点と線は完全連動）
   </div>
 </div>
 
@@ -85,7 +85,6 @@ let scale = 1, offsetX = 0, offsetY = 0;
 let refPoints = [], cablePoints = [];
 let mode = "ref";
 let draggingPoint = null;
-let spiral = null;
 let dpr = window.devicePixelRatio || 1;
 
 /* ===== 下点取得 ===== */
@@ -118,16 +117,18 @@ function draw(){
   drawPoints(cablePoints,"#dc2626");
 }
 
+/* ✅ 点と完全連動する垂直線 */
 function drawVerticalLine(arr,color){
-  if(arr.length!==2) return;
-  const x = arr[0].x;
+  if(arr.length !== 2) return;
+  const base = getLowerPoint(arr);   // ← 常に下点
   const y1 = Math.min(arr[0].y, arr[1].y);
   const y2 = Math.max(arr[0].y, arr[1].y);
+
   ctx.strokeStyle = color;
   ctx.lineWidth = 2/scale;
   ctx.beginPath();
-  ctx.moveTo(x,y1);
-  ctx.lineTo(x,y2);
+  ctx.moveTo(base.x, y1);
+  ctx.lineTo(base.x, y2);
   ctx.stroke();
 }
 
@@ -179,8 +180,8 @@ canvas.addEventListener("touchmove",e=>{
   arr.forEach(pt => pt.x = p.x);
   draggingPoint.y = p.y;
 
-  // ✅ 参照物の下点を動かしたら、赤点も完全追従
-  if(isRef && refPoints.length === 2 && cablePoints.length >= 1){
+  // ✅ 底点共有：参照物下点を動かすと赤点も追従
+  if(isRef && refPoints.length===2 && cablePoints.length>=1){
     const refBottom = getLowerPoint(refPoints);
     const cableBottom = cablePoints[0];
     if(draggingPoint === refBottom){
@@ -200,15 +201,15 @@ canvas.addEventListener("touchend",e=>{
     if(arr.length < 2){
       arr.push(p);
 
-      // ✅ 参照物の2点目が置かれたら、同時に赤の下点を生成
-      if(mode==="ref" && refPoints.length === 2){
+      // ✅ 参照物の下点確定時に赤点を同時生成
+      if(mode==="ref" && refPoints.length===2){
         const refBottom = getLowerPoint(refPoints);
         cablePoints = [{ x: refBottom.x, y: refBottom.y }];
-        mode = "cable";
+        mode="cable";
       }
     }
   }
-  draggingPoint = null;
+  draggingPoint=null;
   draw();
 });
 

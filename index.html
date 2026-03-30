@@ -26,13 +26,14 @@ input,button{width:100%;padding:10px;margin-top:8px;font-size:15px;}
 
 <div class="panel">
   <input type="file" id="fileInput" accept="image/*">
-  <input type="number" id="shootDist" placeholder="📏 撮影距離（m）">
   <input type="number" id="refHeight" placeholder="📐 参照物の高さ（m）">
   <button id="refBtn" class="ref">🟠 参照物を指定</button>
   <button id="calcBtn" class="calc">🔴 高さを計算</button>
   <button id="resetBtn" class="reset">↺ リセット</button>
   <div id="result"></div>
-  <div class="guide">①参照物 → ②ケーブルを上下2点（常に垂直）</div>
+  <div class="guide">
+    ①参照物を上下2点 → ②ケーブルを上下2点（常に完全垂直）
+  </div>
 </div>
 
 <script>
@@ -42,22 +43,18 @@ const ctx = canvas.getContext("2d");
 const result = document.getElementById("result");
 const refHeightInput = document.getElementById("refHeight");
 
+/* ===== 状態 ===== */
 let img = new Image();
 let scale = 1, offsetX = 0, offsetY = 0;
-let refPoints = [], cablePoints = [];
+let refPoints = [];
+let cablePoints = [];
 let mode = "ref";
 let draggingPoint = null;
-let feedback = null;
 let dpr = window.devicePixelRatio || 1;
-
-/* ===== ルーペ ===== */
-let showLoupe=false, loupeX=0, loupeY=0;
-const LOUPE_SIZE=80, LOUPE_ZOOM=2.5;
 
 /* ===== resize ===== */
 function resize(){
   const r = canvas.getBoundingClientRect();
-  dpr = window.devicePixelRatio || 1;
   canvas.width  = r.width  * dpr;
   canvas.height = r.height * dpr;
   draw();
@@ -77,25 +74,21 @@ function draw(){
   drawLine(cablePoints,"#dc2626");
   drawPoints(refPoints,"#f59e0b");
   drawPoints(cablePoints,"#dc2626");
-  drawFeedback();
-
-  ctx.setTransform(1,0,0,1,0,0);
-  drawLoupe();
 }
 
 function drawLine(arr,color){
-  if(arr.length===2){
-    ctx.strokeStyle=color;
-    ctx.lineWidth=2/scale;
+  if(arr.length === 2){
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2 / scale;
     ctx.beginPath();
-    ctx.moveTo(arr[0].x,arr[0].y);
-    ctx.lineTo(arr[1].x,arr[1].y);
+    ctx.moveTo(arr[0].x, arr[0].y);
+    ctx.lineTo(arr[1].x, arr[1].y);
     ctx.stroke();
   }
 }
 
 function drawPoints(arr,color){
-  const r=4/scale;
+  const r = 4 / scale;
   arr.forEach(p=>{
     ctx.beginPath();
     ctx.arc(p.x,p.y,r,0,Math.PI*2);
@@ -107,68 +100,30 @@ function drawPoints(arr,color){
   });
 }
 
-/* ===== タップ時フィードバック（直線） ===== */
-function drawFeedback(){
-  if(!feedback) return;
-  const {x,y,t,c}=feedback;
-  const len=t*12;
-  ctx.strokeStyle=c;
-  ctx.lineWidth=1.5/scale;
-  ctx.beginPath();
-  ctx.moveTo(x,y-len/2);
-  ctx.lineTo(x,y+len/2);
-  ctx.stroke();
-
-  feedback.t+=0.4;
-  if(feedback.t<6) requestAnimationFrame(draw);
-  else feedback=null;
-}
-
-/* ===== ルーペ ===== */
-function drawLoupe(){
-  if(!showLoupe||!img.src) return;
-  const wx=(loupeX-offsetX)/scale;
-  const wy=(loupeY-offsetY)/scale;
-  const s=LOUPE_SIZE, z=LOUPE_ZOOM;
-  const src=s/z;
-
-  ctx.save();
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.fillStyle="#fff";
-  ctx.fillRect(loupeX-s/2,loupeY-s/2,s,s);
-  ctx.drawImage(img,wx-src/2,wy-src/2,src,src,loupeX-s/2,loupeY-s/2,s,s);
-  ctx.strokeStyle="#2563eb";
-  ctx.lineWidth=1.5;
-  ctx.strokeRect(loupeX-s/2,loupeY-s/2,s,s);
-  ctx.restore();
-}
-
 /* ===== 座標 ===== */
 function screenToWorld(x,y){
-  const r=canvas.getBoundingClientRect();
-  return {x:(x-r.left-offsetX)/scale,y:(y-r.top-offsetY)/scale};
+  const r = canvas.getBoundingClientRect();
+  return {
+    x:(x-r.left-offsetX)/scale,
+    y:(y-r.top-offsetY)/scale
+  };
 }
 function hitTest(x,y){
   const r=canvas.getBoundingClientRect();
   const sx=x-r.left, sy=y-r.top;
   for(const p of [...refPoints,...cablePoints]){
-    const px=p.x*scale+offsetX, py=p.y*scale+offsetY;
+    const px=p.x*scale+offsetX;
+    const py=p.y*scale+offsetY;
     if(Math.hypot(px-sx,py-sy)<12) return p;
   }
   return null;
 }
 
-/* ===== タッチ操作 ===== */
+/* ===== タッチ ===== */
 canvas.addEventListener("touchstart",e=>{
   e.preventDefault();
   const t=e.touches[0];
-  draggingPoint=hitTest(t.clientX,t.clientY);
-  if(draggingPoint){
-    showLoupe=true;
-    const r=canvas.getBoundingClientRect();
-    loupeX=t.clientX-r.left;
-    loupeY=t.clientY-r.top-60;
-  }
+  draggingPoint = hitTest(t.clientX,t.clientY);
 },{passive:false});
 
 canvas.addEventListener("touchmove",e=>{
@@ -176,79 +131,85 @@ canvas.addEventListener("touchmove",e=>{
   if(!draggingPoint) return;
 
   const t=e.touches[0];
-  const r=canvas.getBoundingClientRect();
   const p=screenToWorld(t.clientX,t.clientY);
 
   const list = refPoints.includes(draggingPoint) ? refPoints : cablePoints;
-  const other = list.find(pt=>pt!==draggingPoint);
+  const baseX = list[0].x;          // ★ 常に最初の点のX
 
-  draggingPoint.x = other ? other.x : p.x; // ★ 垂直固定
+  draggingPoint.x = baseX;
   draggingPoint.y = p.y;
-
-  loupeX=t.clientX-r.left;
-  loupeY=t.clientY-r.top-60;
   draw();
 },{passive:false});
 
 canvas.addEventListener("touchend",e=>{
   if(!draggingPoint){
-    const t=e.changedTouches[0];
-    const p=screenToWorld(t.clientX,t.clientY);
-    const arr=(mode==="ref")?refPoints:cablePoints;
+    const t = e.changedTouches[0];
+    const p = screenToWorld(t.clientX,t.clientY);
+    const arr = (mode==="ref") ? refPoints : cablePoints;
 
-    if(arr.length<2){
-      if(arr.length===1) p.x=arr[0].x; // ★ 追加時も垂直
+    if(arr.length < 2){
+      if(arr.length === 1){
+        p.x = arr[0].x;             // ★ 完全垂直固定
+      }
       arr.push(p);
-      feedback={x:p.x,y:p.y,t:0,c:(mode==="ref")?"#f59e0b":"#dc2626"};
-      if(mode==="ref"&&arr.length===2) mode="cable";
+      if(mode==="ref" && arr.length === 2) mode="cable";
     }
   }
-  showLoupe=false;
-  draggingPoint=null;
+  draggingPoint = null;
   draw();
 });
 
 /* ===== ボタン ===== */
-refBtn.onclick=()=>{
-  mode="ref";refPoints=[];cablePoints=[];
+refBtn.onclick = ()=>{
+  mode="ref";
+  refPoints=[];
+  cablePoints=[];
   result.textContent="";
 };
-resetBtn.onclick=()=>{
-  img.src="";refPoints=[];cablePoints=[];
-  mode="ref";scale=1;offsetX=0;offsetY=0;
-  result.textContent="";draw();
+
+resetBtn.onclick = ()=>{
+  img.src="";
+  refPoints=[];
+  cablePoints=[];
+  mode="ref";
+  scale=1; offsetX=0; offsetY=0;
+  result.textContent="";
+  draw();
 };
 
-calcBtn.onclick=()=>{
-  if(refPoints.length!==2||cablePoints.length!==2){
+calcBtn.onclick = ()=>{
+  if(refPoints.length!==2 || cablePoints.length!==2){
     result.textContent="⚠️ 参照物とケーブルを2点ずつ指定してください";
-    result.className="ng"; return;
+    result.className="ng";
+    return;
   }
 
-  const refH=parseFloat(refHeightInput.value);
-  if(!refH||refH<=0){
+  const refH = parseFloat(refHeightInput.value);
+  if(!refH || refH<=0){
     result.textContent="⚠️ 参照物の高さを入力してください";
-    result.className="ng"; return;
+    result.className="ng";
+    return;
   }
 
-  const refPx=Math.abs(refPoints[1].y-refPoints[0].y);
-  const cabPx=Math.abs(cablePoints[1].y-cablePoints[0].y);
-  const h=(cabPx/refPx)*refH;
+  const refPx = Math.abs(refPoints[1].y - refPoints[0].y);
+  const cabPx = Math.abs(cablePoints[1].y - cablePoints[0].y);
 
-  result.innerHTML=`✅ 推定ケーブル地上高<br><b style="font-size:22px">${h.toFixed(2)} m</b>`;
+  const h = (cabPx / refPx) * refH;
+
+  result.innerHTML = `✅ 推定ケーブル地上高<br><b style="font-size:22px">${h.toFixed(2)} m</b>`;
   result.className="ok";
 };
 
 /* ===== 画像 ===== */
-fileInput.onchange=e=>{
+fileInput.onchange = e=>{
   const r=new FileReader();
   r.onload=()=>{
     img.onload=()=>{
-      scale=canvas.clientWidth/img.width;
-      offsetY=(canvas.clientHeight-img.height*scale)/2;
+      scale = canvas.clientWidth / img.width;
+      offsetY = (canvas.clientHeight - img.height*scale) / 2;
       draw();
     };
-    img.src=r.result;
+    img.src = r.result;
   };
   r.readAsDataURL(e.target.files[0]);
 };

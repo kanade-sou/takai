@@ -72,8 +72,8 @@ function draw(){
   ctx.drawImage(img,0,0);
   drawLine(refPoints,"#f59e0b");
   drawLine(cablePoints,"#dc2626");
-  drawTMarkers(refPoints,"#f59e0b");
-  drawTMarkers(cablePoints,"#dc2626");
+  drawBarMarkers(refPoints,"#f59e0b");
+  drawBarMarkers(cablePoints,"#dc2626");
 }
 
 function drawLine(arr,color){
@@ -87,26 +87,18 @@ function drawLine(arr,color){
   }
 }
 
-/* ===== T字マーカー（上下点共通）===== */
-function drawTMarkers(arr, color){
-  const halfLen = 12 / scale;
-  const vertLen = 8 / scale;
+/* ===== 横棒マーカー（タップ位置＝測定ライン）===== */
+function drawBarMarkers(arr, color){
+  const halfLen = 14 / scale;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = 3 / scale;
+  ctx.lineWidth = 4 / scale;
   ctx.lineCap = "round";
 
   arr.forEach(p => {
     ctx.beginPath();
-
-    // 横棒
     ctx.moveTo(p.x - halfLen, p.y);
     ctx.lineTo(p.x + halfLen, p.y);
-
-    // 縦棒（下向きT）
-    ctx.moveTo(p.x, p.y);
-    ctx.lineTo(p.x, p.y + vertLen);
-
     ctx.stroke();
   });
 }
@@ -224,4 +216,3 @@ fileInput.onchange = e=>{
 </script>
 </body>
 </html>
-``

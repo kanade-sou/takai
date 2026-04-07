@@ -21,15 +21,17 @@ input,button{width:100%;padding:10px;margin-top:8px;font-size:15px;}
 
 <body>
 <header>📱 スマホ完結｜ケーブル地上高測定ツール</header>
-
 <canvas id="canvas"></canvas>
 
 <div class="panel">
   <input type="file" id="fileInput" accept="image/*">
+  <input type="number" id="shootDist" placeholder="📏 撮影距離（m）">
   <input type="number" id="refHeight" placeholder="📐 参照物の高さ（m）">
+
   <button id="refBtn" class="ref">🟠 参照物を指定</button>
   <button id="calcBtn" class="calc">🔴 高さを計算</button>
   <button id="resetBtn" class="reset">↺ リセット</button>
+
   <div id="result"></div>
   <div class="guide">
     ①参照物を上下2点 → ②ケーブルを上下2点（常に完全垂直）
@@ -66,14 +68,12 @@ resize();
 function draw(){
   ctx.setTransform(1,0,0,1,0,0);
   ctx.clearRect(0,0,canvas.width,canvas.height);
-
   ctx.setTransform(dpr*scale,0,0,dpr*scale,offsetX*dpr,offsetY*dpr);
   ctx.drawImage(img,0,0);
-
   drawLine(refPoints,"#f59e0b");
   drawLine(cablePoints,"#dc2626");
-  drawPoints(refPoints,"#f59e0b");
-  drawPoints(cablePoints,"#dc2626");
+  drawTMarkers(refPoints,"#f59e0b");
+  drawTMarkers(cablePoints,"#dc2626");
 }
 
 function drawLine(arr,color){
@@ -87,15 +87,26 @@ function drawLine(arr,color){
   }
 }
 
-function drawPoints(arr,color){
-  const r = 4 / scale;
-  arr.forEach(p=>{
+/* ===== T字マーカー（上下点共通）===== */
+function drawTMarkers(arr, color){
+  const halfLen = 12 / scale;
+  const vertLen = 8 / scale;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3 / scale;
+  ctx.lineCap = "round";
+
+  arr.forEach(p => {
     ctx.beginPath();
-    ctx.arc(p.x,p.y,r,0,Math.PI*2);
-    ctx.fillStyle=color;
-    ctx.fill();
-    ctx.strokeStyle="#fff";
-    ctx.lineWidth=1/scale;
+
+    // 横棒
+    ctx.moveTo(p.x - halfLen, p.y);
+    ctx.lineTo(p.x + halfLen, p.y);
+
+    // 縦棒（下向きT）
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x, p.y + vertLen);
+
     ctx.stroke();
   });
 }
@@ -108,6 +119,7 @@ function screenToWorld(x,y){
     y:(y-r.top-offsetY)/scale
   };
 }
+
 function hitTest(x,y){
   const r=canvas.getBoundingClientRect();
   const sx=x-r.left, sy=y-r.top;
@@ -129,13 +141,10 @@ canvas.addEventListener("touchstart",e=>{
 canvas.addEventListener("touchmove",e=>{
   e.preventDefault();
   if(!draggingPoint) return;
-
   const t=e.touches[0];
   const p=screenToWorld(t.clientX,t.clientY);
-
   const list = refPoints.includes(draggingPoint) ? refPoints : cablePoints;
-  const baseX = list[0].x;          // ★ 常に最初の点のX
-
+  const baseX = list[0].x;
   draggingPoint.x = baseX;
   draggingPoint.y = p.y;
   draw();
@@ -146,10 +155,9 @@ canvas.addEventListener("touchend",e=>{
     const t = e.changedTouches[0];
     const p = screenToWorld(t.clientX,t.clientY);
     const arr = (mode==="ref") ? refPoints : cablePoints;
-
     if(arr.length < 2){
       if(arr.length === 1){
-        p.x = arr[0].x;             // ★ 完全垂直固定
+        p.x = arr[0].x;
       }
       arr.push(p);
       if(mode==="ref" && arr.length === 2) mode="cable";
@@ -193,10 +201,10 @@ calcBtn.onclick = ()=>{
 
   const refPx = Math.abs(refPoints[1].y - refPoints[0].y);
   const cabPx = Math.abs(cablePoints[1].y - cablePoints[0].y);
-
   const h = (cabPx / refPx) * refH;
 
-  result.innerHTML = `✅ 推定ケーブル地上高<br><b style="font-size:22px">${h.toFixed(2)} m</b>`;
+  result.innerHTML =
+    `✅ 推定ケーブル地上高<br><b style="font-size:22px">${h.toFixed(2)} m</b>`;
   result.className="ok";
 };
 
@@ -216,3 +224,4 @@ fileInput.onchange = e=>{
 </script>
 </body>
 </html>
+``
